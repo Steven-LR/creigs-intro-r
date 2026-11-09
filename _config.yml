@@ -1,0 +1,12 @@
+title: CREiGS Intro to R
+description: Data Wrangling and Visualization
+theme: jekyll-theme-primer
+exclude:
+  - README.md
+  - renv/
+  - renv.lock
+  - data/
+  - figures/
+  - dependencies.R
+  - creigs-intro-r-workbook.qmd
+  - creigs-intro-r.Rproj
