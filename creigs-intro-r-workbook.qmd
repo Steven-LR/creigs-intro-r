@@ -1,0 +1,721 @@
+---
+title: "CREiGS Intro to R"
+subtitle: "Data wrangling and visualization in R (workbook)"
+author: "Steven Lawrence, PhD"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-tools: true
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+---
+
+## Overview
+
+This workbook walks through a complete analysis in R, from loading raw files to a finished, publication-style figure. It uses two public datasets from NYC Open Data:
+
+- **The 2018 Central Park Squirrel Census:** 3,023 squirrel sightings, with fur color, location and behavior.
+- **DOHMH New York City Restaurant Inspection Results:** one row per violation cited during a health inspection.
+
+No prior coding experience is needed.
+
+**How to use this file.** A `___` marks a blank to fill in. A chunk that contains a blank will not run until the blank is filled. The answer key is posted after the session.
+
+Each module ends with an optional **If you have extra time** section. These exercises go beyond the core material and can be completed during the session or afterward.
+
+## Before you begin: open the project
+
+Open `creigs-intro-r.Rproj` first, then open this workbook from the Files pane. A project sets R's working directory to the project folder, so a path like `"data/squirrels.csv"` means the `data` folder inside it. If R reports that a file "does not exist in current working directory", the project is usually not open. `getwd()` shows the folder R is using.
+
+Avoid `setwd()` in code you share: the path it contains exists only on your computer.
+
+## Setup
+
+Run this chunk first. It loads the packages used throughout the workbook and defines a color palette and plot theme so that every figure has a consistent look. The palette and theme are explained in more detail at the end of the workbook, after the modules on creating objects and functions.
+
+```{r setup}
+packages <- c(
+  "tidyverse",   # data wrangling and plotting (includes readr, dplyr, tidyr, ggplot2, stringr, lubridate)
+  "janitor",     # cleaning column names and quick tables
+  "readxl",      # reading Excel files
+  "arsenal",     # summary tables
+  "patchwork",   # combining plots
+  "ggrepel"      # plot labels that don't overlap
+)
+lapply(packages, library, character.only = TRUE)
+
+creigs <- c(night = "#050911", navy = "#101F32", royal = "#1F588A", blue = "#1D8EDC",
+            cyan = "#0EB7E7", magenta = "#CD017A", plum = "#92288D")
+
+theme_creigs <- function(base_size = 14) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(face = "bold", color = creigs[["navy"]]),
+          panel.grid.minor = element_blank(),
+          legend.position = "bottom")
+}
+
+dir.create("figures", showWarnings = FALSE)   # folder for saved plots
+```
+
+The tidyverse is a collection of packages that share a common design. Loading `tidyverse` loads all of its core packages at once, including readr for reading files such as CSVs, dplyr for manipulating data, and ggplot2 for plotting. See [tidyverse.org](https://www.tidyverse.org/packages/) for the full list.
+
+## Icebreaker: Central Park squirrels
+
+The first question: **which fur color raises the alarm most often?**
+
+### Load and look at the data
+
+```{r squirrels-load}
+squirrels <- read_csv("data/squirrels.csv") |>
+  janitor::clean_names()
+```
+
+The column names in the downloaded file contain capital letters and spaces, such as `Primary Fur Color`. `janitor::clean_names()` converts every name to lowercase with underscores, so `Primary Fur Color` becomes `primary_fur_color`. The `janitor::` prefix calls a function from a specific package. Module 2 covers `clean_names()` in more detail.
+
+There are several ways to look at a dataset once it is loaded:
+
+- Click `squirrels` in the **Environment** pane to open it as a spreadsheet.
+- Run `colnames(squirrels)` to list the variable names.
+- Run `head(squirrels)` or `tail(squirrels)` to see the first or last six rows.
+- Highlight `squirrels` and run it to print the dataset below the chunk.
+
+```{r squirrels-look}
+colnames(squirrels)
+head(squirrels)
+```
+
+### Count fur colors
+
+Choose the column that holds fur color and count it.
+
+```{r squirrels-count}
+squirrels |> count(___)
+```
+
+This short chunk used the tidyverse package, which the setup chunk loads with `library()`, along with a saved object (`<-`) and the pipe (`|>`). Each of these is covered in Module 1.
+
+### Which squirrels raise the alarm most often?
+
+Kuks and quaas are alarm calls, and tail flags are a warning signal. The chunk below calculates the share of squirrels of each fur color that showed each behavior, then plots it. Each line of the pipe is one step; the functions are covered in Modules 2 to 5.
+
+```{r squirrels-plot}
+squirrels |>
+  filter(!is.na(primary_fur_color)) |>
+  group_by(primary_fur_color) |>
+  summarise(across(c(kuks, quaas, tail_flags), mean)) |>
+  pivot_longer(-primary_fur_color, names_to = "behavior", values_to = "share") |>
+  ggplot(aes(behavior, share, fill = primary_fur_color)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c(Black = creigs[["navy"]], Cinnamon = creigs[["magenta"]],
+                               Gray = creigs[["blue"]])) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Which squirrels raise the alarm most often?",
+       x = NULL, y = "Share of squirrels", fill = "Fur") +
+  theme_creigs()
+```
+
+Each bar shows the share of squirrels of that fur color that showed the behavior. Black squirrels gave the most quaa calls, about 5% compared with about 1% for gray and cinnamon squirrels, and cinnamon squirrels flagged their tails most often.
+
+## Module 1: R building blocks
+
+R stores everything as an object. There are four main data structures. Knowing them makes it much quicker to read code and get the gist of an analysis.
+
+Code is written in this file, not in the console. A script or Quarto file can be saved, shared and rerun; the console is for quick checks. To run a line, place the cursor on it and press Ctrl + Enter (Cmd + Enter on a Mac).
+
+### Vectors
+
+A vector is a sequence of values of the same type.
+
+```{r vectors}
+grades <- c("A", "B", "A", "C")
+scores <- c(12, 21, 9, 35)
+
+class(grades)   # character
+class(scores)   # numeric
+grades[2]       # the second element
+___(scores)    # the average
+length(grades)
+```
+
+### Matrices
+
+A matrix is a two-dimensional grid in which every value has the same type, usually numeric.
+
+```{r matrix}
+m <- matrix(scores, nrow = 2,
+            dimnames = list(c("visit_1", "visit_2"), c("joes", "pizza_place")))
+m
+
+cbind(m, new_spot = c(10, 13))     # add a column
+___(m, visit_3 = c(8, 30))       # add a row
+```
+
+### Data frames
+
+A data frame is a table in which each column can have a different type. Most of this workbook uses data frames.
+
+```{r data-frame}
+shortlist <- data.frame(name  = c("Joe's", "Pizza Place"),
+                        grade = c("A", "B"))
+shortlist
+str(shortlist)
+```
+
+### Lists
+
+A list can hold objects of any type and size, including other lists.
+
+```{r list}
+my_list <- list(table = shortlist, scores = m, note = "lists hold anything")
+names(my_list)
+my_list$___
+```
+
+### Getting help
+
+- `?count` opens the help page for a function. The **Examples** section at the bottom can be copied and run.
+- `vignette(package = "dplyr")` lists the longer tutorials that come with a package.
+- Read the whole error message. The last line often names the fix, and searching for it usually finds an answer.
+- **Help › Cheat Sheets** in RStudio has one-page summaries of dplyr, ggplot2, tidyr and other packages.
+- AI assistants can explain code and error messages. Run and check any code they suggest, and never paste patient or identifiable data into them.
+
+### Exercise 1
+
+Create a data frame of three restaurants with their name, neighborhood and the grade you would expect each to have. Then add a `notes` column that reads, for example, "I give Corner Cafe in Park Slope a grade of B." `paste()` joins its pieces with a space, and `paste0()` joins them with no space, which attaches the period directly to the grade.
+
+```{r exercise-1}
+my_spots <- data.frame(
+  name         = c(___),
+  neighborhood = c(___),
+  grade        = c(___)
+)
+my_spots$notes <- paste("I give", my_spots$name, "in", my_spots$___,
+                        "a grade of", paste0(my_spots$grade, "."))
+my_spots
+```
+
+::: {.callout-tip collapse="true"}
+## If you have extra time
+Try these in the console:
+
+1. What does `c(1, "a", TRUE)` return, and why?
+2. What is the difference between `my_list["table"]` and `my_list[["table"]]`? Check each with `class()`.
+3. Run `str(my_list)` and describe what it shows.
+:::
+
+## Module 2: Load and clean
+
+The main dataset lists restaurant inspections by the NYC Department of Health and Mental Hygiene. Inspectors assign points for each violation, and lower scores are better: 0 to 13 points earns an A, 14 to 27 a B, and 28 or more a C. These are health grades, not ratings of the food.
+
+### Reading files
+
+R has several functions for reading files:
+
+| Function | Package | Typical use |
+|---|---|---|
+| `read_csv()` | readr (tidyverse) | CSV files, including compressed `.csv.gz` |
+| `read_xlsx()` | readxl | Excel files |
+| `vroom()` | vroom | Large files, or many files at once |
+| `fread()` | data.table | Large flat files |
+
+The restaurant file is stored compressed (`.csv.gz`) because GitHub limits files to 100 MB. The first line of the chunk below unzips it the first time it runs. The rest of the chunk times three readers on the same file.
+
+```{r readers}
+if (!file.exists("data/restaurant_inspections.csv")) R.utils::gunzip("data/restaurant_inspections.csv.gz", remove = FALSE)
+
+system.time(rest_raw <- read_csv("data/restaurant_inspections.csv"))
+system.time(vroom::vroom("data/restaurant_inspections.csv"))
+system.time(data.table::fread("data/restaurant_inspections.csv"))
+```
+
+`vroom()` is usually fastest. It indexes the file first and reads each value only when that value is used, so much of the work is deferred rather than skipped. `fread()` returns a data.table rather than a tibble; `as_tibble()` converts it. For Excel files, the equivalent is `read_xlsx("file.xlsx")`.
+
+### Clean the column names
+
+```{r raw-names}
+colnames(rest_raw)
+```
+
+As with the squirrel data, column names with capital letters and spaces have to be wrapped in backticks every time they are used. `clean_names()` from janitor converts every name to lowercase with underscores in a single step, which keeps later code consistent.
+
+```{r clean-names}
+rest <- rest_raw |>
+  ___() |>
+  mutate(inspection_date = mdy(inspection_date))   # "07/30/2019" stored as text becomes a date
+
+colnames(rest)
+```
+
+### Check categories before using them
+
+New York City has five boroughs. `camis` is the unique ID the Health Department gives each restaurant; it stays the same across inspections, so `distinct(camis, boro)` keeps one row per restaurant.
+
+```{r boroughs}
+rest |> distinct(camis, boro) |> ___(boro)
+```
+
+Twenty restaurants are listed in borough "0", a data-entry error. `count()` is a quick way to find values like this. These rows are dropped below.
+
+The next chunk contains a common mistake. Run it and read the error message.
+
+```{r bug, error = TRUE}
+rest |> filter(boro = "Manhattan")
+```
+
+The last line of the message suggests the fix: `=` assigns a value, while `==` tests whether two values are equal.
+
+### What does one row represent?
+
+```{r one-row}
+nrow(rest)                                      # rows
+nrow(distinct(rest, camis, inspection_date))    # inspections
+n_distinct(rest$___)                          # restaurants
+```
+
+Each row is one violation, not one restaurant or one inspection. Counting rows to count restaurants would overstate the number about 15 times. Identifying what a row represents should come before any summary.
+
+### Missing values
+
+`NA` marks a missing value. Most calculations that include an `NA` return `NA`, because the true answer is unknown.
+
+```{r missing}
+mean(rest$score)                     # NA: some scores are missing
+sum(is.na(rest$score))               # how many are missing
+mean(rest$score, ___ = TRUE)       # skip the missing values
+```
+
+`na.rm = TRUE` skips missing values; it is a choice worth reporting. To find missing values, use `is.na(x)`. Writing `x == NA` does not work, because comparing anything to an unknown value gives `NA`.
+
+### Building a pipeline
+
+```{r pipe}
+inspections <- rest |>
+  filter(boro != "0", grade %in% c("A", "B", "C")) |>     # drop borough "0"; keep graded inspections
+  distinct(camis, inspection_date, .keep_all = TRUE) |>   # one row per inspection
+  mutate(year = ___(inspection_date)) |>
+  select(camis, dba, boro, cuisine_description, inspection_date, score, grade, year)
+
+glimpse(inspections)
+```
+
+The pipe reads as "and then": take `rest`, and then filter, and then keep one row per inspection, and then add a year, and then keep eight columns. A comment on each filter records the decision behind it.
+
+::: {.callout-note}
+## Hint
+If `read_csv()` guesses a column type incorrectly, set it directly with `col_types`, for example `col_types = cols(zipcode = col_character())`. To read a folder of CSV files into one table, pass the file names to `vroom()` with `id = "file"`.
+:::
+
+## Module 3: Strings and joins
+
+### Splitting one column into several
+
+Each squirrel ID, such as `37F-PM-1014-03`, combines four pieces of information: hectare, shift, date and squirrel number. `separate()` splits it into four columns.
+
+```{r separate}
+squirrels_split <- squirrels |>
+  separate(unique_squirrel_id, into = c("hectare_id", "shift_id", "date_id", "squirrel_no"),
+           sep = ___, remove = FALSE) |>
+  mutate(date = mdy(date))                          # 10142018 becomes 2018-10-14
+
+squirrels_split |> select(unique_squirrel_id, hectare_id, shift_id, squirrel_no, date)
+```
+
+::: {.callout-note}
+## Dates stored as numbers
+`mdy()` works here because the date is written as month, day and year. Software that stores dates as a count of days or seconds uses a different starting point, or *origin*, and the origin must match the source when converting:
+
+- Excel (Windows): days since 1899-12-30, so `as.Date(45000, origin = "1899-12-30")`
+- SAS: days since 1960-01-01
+- SPSS: seconds since 1582-10-14
+- R: days since 1970-01-01
+:::
+
+### Working with text
+
+```{r strings}
+paste0("cluster_", 0:5)                             # join text with no separator
+paste("P01", "tumor", sep = "_")                    # join text with a separator
+str_sub("37F-PM-1014-03", 1, 3)                     # characters 1 to 3
+gsub("-1$", "", "AAACCTGAGAAGGCCT-1")               # find and replace
+str_detect(c("MT-CO1", "CD3E", "MT-ND4"), "^MT-")   # does each value start with "MT-"?
+```
+
+### Joins
+
+A join matches rows from two tables on a shared column, called a key.
+
+```{r join}
+boro_info <- tibble(
+  boro   = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"),
+  region = c("north", "south", "center", "east", "southwest")
+)
+
+inspections <- inspections |> left_join(boro_info, by = ___)
+```
+
+Check the number of rows in the console with `nrow(inspections)` before and after running the join. A change means some keys matched more than once. A quick summary of the main variables, such as `count(region)` or `summary()`, is another way to confirm the joined data looks as expected. Checking in the console avoids creating extra objects, which make a project harder to follow as it grows.
+
+`anti_join()` returns the rows that found no match:
+
+```{r anti-join}
+rest |> distinct(camis, boro) |> anti_join(boro_info, by = "boro") |> count(boro)
+```
+
+`cbind()` and `bind_cols()` also combine tables side by side, but by position rather than by key. They are safe only when both tables are in the same row order.
+
+### Exercise 2
+
+Look up a restaurant you know and list its inspections by date. `grepl()` with `ignore.case = TRUE` matches text regardless of capitalization.
+
+```{r exercise-2}
+inspections |>
+  filter(grepl(___, dba, ignore.case = TRUE)) |>
+  arrange(___) |>
+  select(dba, boro, inspection_date, score, grade)
+```
+
+Has it ever received a grade below A?
+
+::: {.callout-tip collapse="true"}
+## If you have extra time
+1. Using `squirrels_split`, compare the AM and PM shifts. Which shift recorded more squirrels running?
+2. Use `str_match()` with a capture group to extract the numeric part of the hectare ID.
+:::
+
+## Module 4: Summaries, pivots and tables
+
+Which chain has the most locations in the inspection data: Dunkin', Starbucks, Subway or McDonald's?
+
+```{r chains}
+rest |> distinct(camis, dba) |> ___(dba, sort = TRUE) |> head()
+```
+
+Notice the `NA` row: some restaurants have no name recorded.
+
+### Grouped summaries
+
+`group_by()` followed by `summarise()` calculates a summary for each group.
+
+```{r summarise}
+inspections |>
+  group_by(___) |>
+  summarise(n = n(),
+            a_rate = mean(grade == "A"),
+            median_score = median(score, na.rm = TRUE)) |>
+  arrange(desc(a_rate))
+```
+
+`mean(grade == "A")` gives a proportion because R treats `TRUE` as 1 and `FALSE` as 0.
+
+`tabyl()` from janitor makes quick cross-tabulations:
+
+```{r tabyl}
+inspections |> tabyl(boro, grade) |> adorn_percentages("row") |> adorn_pct_formatting(digits = 1)
+```
+
+### Pivoting
+
+`pivot_wider()` spreads one column across several; `pivot_longer()` reverses it.
+
+```{r pivot}
+inspections |>
+  count(cuisine_description, boro) |>
+  pivot_wider(names_from = ___, values_from = n, values_fill = 0) |>
+  head()
+```
+
+### Summary tables with arsenal
+
+`tableby()` builds a summary table, such as a Table 1, from a formula, the same way a regression model is specified.
+
+```{r arsenal, results = "asis"}
+tab1 <- tableby(boro ~ score + grade, data = inspections)
+summary(tab1)
+```
+
+### Other approaches
+
+The same summary written with data.table:
+
+```{r data-table}
+library(data.table)
+dt <- as.data.table(inspections)
+dt[, .(n = .N, a_rate = mean(grade == "A")), by = boro]
+```
+
+`gtsummary::tbl_summary()` is another widely used package for summary tables.
+
+| Task | tidyverse | base R | data.table |
+|---|---|---|---|
+| Filter rows | `filter(df, boro == "Bronx")` | `df[df$boro == "Bronx", ]` | `dt[boro == "Bronx"]` |
+| New column | `mutate(df, x = score / 2)` | `df$x <- df$score / 2` | `dt[, x := score / 2]` |
+| Group mean | `df |> group_by(boro) |> summarise(m = mean(score))` | `aggregate(score ~ boro, df, mean)` | `dt[, .(m = mean(score)), by = boro]` |
+| Sort | `arrange(df, desc(score))` | `df[order(-df$score), ]` | `dt[order(-score)]` |
+
+### Advanced wrangling functions
+
+These functions are not needed for the rest of the workbook. They solve problems that come up often once you start your own analyses.
+
+**Ordering and grouping categories (forcats).** `fct_lump_n()` keeps the most common categories and groups the rest as "Other", which keeps tables and legends readable.
+
+```{r fct-lump}
+inspections |>
+  mutate(cuisine = fct_lump_n(cuisine_description, n = 5)) |>
+  count(cuisine, sort = TRUE)
+```
+
+ggplot orders bars alphabetically by default. `fct_infreq()` orders them by frequency, and `fct_reorder()` orders them by the value of another column.
+
+```{r fct-infreq, fig.width = 7, fig.height = 4}
+inspections |>
+  ggplot(aes(x = fct_infreq(boro))) +
+  geom_bar(fill = creigs[["royal"]]) +
+  labs(x = NULL, y = "Inspections") +
+  theme_creigs()
+```
+
+**Handling missing values (tidyr).** `drop_na()` removes rows with a missing value in the named columns, and `replace_na()` fills them in.
+
+```{r na-tools}
+rest |> drop_na(score) |> nrow()
+
+rest |>
+  mutate(dba = replace_na(dba, "Unknown")) |>
+  count(dba == "Unknown")
+```
+
+::: {.callout-tip collapse="true"}
+## If you have extra time
+1. Which cuisine with at least 500 inspections has the highest share of A grades?
+2. Make the same Table 1 with `gtsummary::tbl_summary(by = boro)` and add p-values with `add_p()`.
+:::
+
+## Module 5: Visualization
+
+A ggplot is built from layers: the data, the aesthetic mappings (which column goes on which axis or color), a geometry, scales, labels and a theme.
+
+### Grades by borough
+
+```{r grades-plot}
+grade_share <- inspections |>
+  count(boro, grade) |>
+  group_by(boro) |>
+  mutate(share = n / sum(n)) |>
+  ungroup()
+
+write_csv(grade_share, "data/fig_grades_by_borough.csv")   # the data behind the figure
+
+p_grades <- ggplot(grade_share, aes(x = boro, y = share, fill = ___)) +
+  geom_col() +
+  scale_fill_manual(values = c(A = creigs[["royal"]], B = creigs[["cyan"]], C = creigs[["magenta"]])) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = ___, x = NULL, y = NULL, fill = "Grade") +
+  theme_creigs()
+
+p_grades
+```
+
+Saving the data behind a figure to the `data` folder makes it easy to rebuild the chart in Excel or PowerPoint.
+
+### Volcano plot
+
+A volcano plot compares many items at once. Here, each point is a violation type, comparing Manhattan with the other four boroughs. The x-axis compares the share of inspections that cite the violation in Manhattan with the share in the other boroughs (log2 of that ratio), and the y-axis shows the strength of evidence (−log10 of the adjusted p-value). Volcano plots are common in gene expression analysis.
+
+```{r volcano}
+viol <- rest |>
+  filter(boro != "0", !is.na(violation_code)) |>
+  distinct(camis, inspection_date, boro, violation_code) |>
+  mutate(manhattan = boro == "Manhattan")
+
+n_insp <- rest |>
+  filter(boro != "0") |>
+  distinct(camis, inspection_date, boro) |>
+  mutate(manhattan = boro == "Manhattan") |>
+  count(manhattan, name = "n_insp")
+
+volcano <- viol |>
+  count(violation_code, manhattan) |>
+  left_join(n_insp, by = "manhattan") |>
+  pivot_wider(names_from = manhattan, values_from = c(n, n_insp), values_fill = 0) |>
+  filter(n_TRUE + n_FALSE >= 200) |>
+  rowwise() |>
+  mutate(p = prop.test(c(n_TRUE, n_FALSE), c(n_insp_TRUE, n_insp_FALSE))$p.value) |>
+  ungroup() |>
+  mutate(log2_ratio = log2((n_TRUE / n_insp_TRUE) / (n_FALSE / n_insp_FALSE)),
+         p_adj = p.adjust(p, method = "BH"),
+         direction = case_when(p_adj < 0.05 & log2_ratio >  0.3 ~ "More in Manhattan",
+                               p_adj < 0.05 & log2_ratio < -0.3 ~ "Less in Manhattan",
+                               TRUE ~ "No difference"))
+
+write_csv(volcano, "data/fig_volcano.csv")
+
+p_volcano <- ggplot(volcano, aes(log2_ratio, -log10(p_adj), color = direction)) +
+  geom_point(size = 2.5, alpha = 0.8) +
+  geom_vline(xintercept = c(-0.3, 0.3), linetype = "dashed") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_text_repel(data = slice_min(volcano, p_adj, n = 6),
+                  aes(label = violation_code), color = creigs[["navy"]]) +
+  scale_color_manual(values = c("More in Manhattan" = creigs[["magenta"]],
+                                "Less in Manhattan" = creigs[["blue"]],
+                                "No difference"     = "grey75")) +
+  labs(title = "Which violations are more common in Manhattan?",
+       x = "log2(rate in Manhattan / rate elsewhere)", y = "-log10 adjusted p", color = NULL) +
+  theme_creigs()
+
+p_volcano
+```
+
+The point with the smallest p-value is grey: that violation is cited in 22% of Manhattan inspections and 19% elsewhere, a highly significant but small difference. With large samples, small differences reach statistical significance, so effect size and significance should be read together.
+
+### Heatmap
+
+The heatmap shows the share of A grades for the 12 most-inspected cuisines in each borough. Values are z-scored within each cuisine, so each row is compared only with itself.
+
+```{r heatmap}
+top_cuisines <- inspections |>
+  count(cuisine_description, sort = TRUE) |>
+  slice_head(n = 12) |>
+  pull(cuisine_description)
+
+heat_data <- inspections |>
+  filter(cuisine_description %in% top_cuisines) |>
+  group_by(cuisine_description, boro) |>
+  summarise(a_rate = mean(grade == "A"), .groups = "drop") |>
+  group_by(cuisine_description) |>
+  mutate(z = (a_rate - mean(a_rate)) / sd(a_rate)) |>
+  ungroup()
+
+write_csv(heat_data, "data/fig_heatmap.csv")
+
+p_heat <- ggplot(heat_data, aes(boro, str_trunc(cuisine_description, 22), fill = z)) +
+  ___(color = "white") +
+  scale_fill_gradient2(low = creigs[["magenta"]], mid = "white", high = creigs[["royal"]],
+                       name = "z (A-rate)") +
+  labs(title = "Share of A grades by cuisine and borough", x = NULL, y = NULL) +
+  theme_creigs(12)
+
+p_heat
+```
+
+### Exercise 3: Combine plots with patchwork
+
+patchwork arranges separate ggplots into one figure. A common use is a scatter plot with the distribution of each variable along its edges. In the squirrel data, `x` and `y` are each sighting's longitude and latitude, so the scatter plot is a map of Central Park. The histogram of `x` goes above it, and the histogram of `y` goes to its right, turned on its side.
+
+Build the three plots, then combine them. `plot_spacer()` fills the empty top-right corner, `ncol = 2` sets two columns, and `widths` and `heights` make the scatter plot the largest panel.
+
+```{r exercise-3, fig.width = 9, fig.height = 9}
+sq_xy <- squirrels |>
+  filter(!is.na(primary_fur_color))
+
+fur_colors <- c(Black = creigs[["navy"]], Cinnamon = creigs[["magenta"]], Gray = creigs[["blue"]])
+
+p_scatter <- ggplot(sq_xy, aes(x = x, y = y, color = primary_fur_color)) +
+  geom_point(size = 1, alpha = 0.6) +
+  scale_color_manual(values = fur_colors) +
+  labs(x = "Longitude", y = "Latitude", color = "Fur") +
+  theme_creigs() +
+  theme(legend.position = "bottom")
+
+p_top <- ggplot(sq_xy, aes(x = ___)) +
+  geom_histogram(bins = 40, fill = creigs[["royal"]]) +
+  theme_void()
+
+# mapping y instead of x draws the bars sideways
+p_right <- ggplot(sq_xy, aes(y = ___)) +
+  geom_histogram(bins = 40, fill = creigs[["royal"]]) +
+  theme_void()
+
+fig <- p_top + ___ + p_scatter + p_right +
+  plot_layout(ncol = 2, widths = c(4, 1), heights = c(1, 4)) +
+  plot_annotation(title = "Squirrel sightings in Central Park", theme = theme_creigs())
+
+fig
+```
+
+The histograms show where sightings cluster along each axis, which is hard to judge from overlapping points alone.
+
+::: {.callout-tip collapse="true"}
+## If you have extra time
+1. `|` places plots side by side and `/` stacks them. Combine the figures from this module into one panel figure with `(p_grades | p_volcano) / p_heat`.
+2. Replace `"Manhattan"` in the volcano code with another borough.
+3. Add an argument to `theme_creigs()` that sets the legend position.
+4. Save the figure at journal width with `ggsave(width = 180, units = "mm")`.
+5. In the grades plot, order the boroughs by their share of A grades with `fct_reorder()`.
+:::
+
+## Module 6: Saving work
+
+Save the cleaned data and the finished figures so later steps start from them instead of the raw files. Including the date in a file name with `paste0()` keeps versions organized.
+
+```{r save}
+run_date <- Sys.Date()
+
+ggsave(paste0("figures/figure_", run_date, ".png"), fig, width = 9, height = 9, bg = "white")
+ggsave("figures/grades_by_borough.png", p_grades, width = 8, height = 5, bg = "white")
+
+___(inspections, paste0("data/inspections_clean_", run_date, ".rds"))
+
+# lists can be saved the same way
+saveRDS(list(grades = p_grades, volcano = p_volcano), "data/plots.rds")
+
+# readRDS() returns the object exactly as it was saved
+inspections_again <- readRDS(paste0("data/inspections_clean_", run_date, ".rds"))
+identical(inspections, inspections_again)
+```
+
+| Format | Function | Best for |
+|---|---|---|
+| `.csv` | `write_csv()` | Sharing data with Excel or with people who don't use R |
+| `.rds` | `saveRDS()` | Reloading R objects with their types intact |
+| `.png` / `.pdf` | `ggsave()` | Figures for slides and manuscripts |
+
+## Revisiting the setup chunk
+
+The setup chunk at the top of this workbook uses two ideas from Module 1:
+
+- `creigs` is a **named character vector**. Each color has a name, so `creigs[["navy"]]` returns `"#101F32"`.
+- `theme_creigs()` is a **function**. It takes one argument, `base_size`, and returns a ggplot theme. Adding `+ theme_creigs()` to any plot applies the same fonts, grid and legend position.
+
+Defining these once at the top makes them available to every chunk below and keeps all figures consistent. Changing one value in the setup chunk changes every figure.
+
+## Recording package versions
+
+Packages are updated over time, and the same code can give different results with different versions. `sessionInfo()` prints the R version, the operating system and the version of every loaded package. Ending an analysis with it records what produced the results.
+
+```{r session-info}
+sessionInfo()
+```
+
+For a project you will share or return to, the renv package saves the exact package versions in a lock file inside the project:
+
+```{r renv, eval = FALSE}
+renv::init()       # start tracking packages in this project
+renv::snapshot()   # save the current versions to renv.lock
+renv::restore()    # reinstall those versions, on this or another computer
+```
+
+## Installing packages safely
+
+Install packages from CRAN (`install.packages()`) or Bioconductor (`BiocManager::install()`) whenever possible. Both review new packages and run automated checks on every update, which makes it much harder to hide a malicious script inside a package. Packages installed from GitHub (`remotes::install_github()`) have no review step, and attacks on researchers through open-source packages are increasing, so install from GitHub only when you know and trust the author.
+
+Keep R up to date. R 4.4.0 fixed a vulnerability (CVE-2024-27322) that allowed a specially crafted `.rds` file to run code when loaded, so only use `readRDS()` on files from sources you trust.
+
+## Protecting sensitive data
+
+- Share code, not data. Add the `data` folder to `.gitignore` before pushing a project to GitHub.
+- Never put names, medical record numbers, dates of birth or other identifiers on GitHub, in email or in a public cloud folder.
+- Check your IRB protocol and data use agreements before using a cloud service or AI tool with study data.
+- Aggregated or de-identified tables, like the figure CSVs saved in Module 5, are usually what you should share.
+
+## Reproducibility check
+
+Restart R (**Session › Restart R**) and run the whole file from the top (**Run › Run All**). Does it produce the same tables and figures? If not, find the step that depended on something outside the file, such as an object created in the console or a file saved in another folder.
+
+## Where to go next
+
+- [R for Data Science, 2nd edition](https://r4ds.hadley.nz): a free online book covering everything in this workbook in more depth.
+- [Posit cheatsheets](https://posit.co/resources/cheatsheets/): one-page references for dplyr, ggplot2, tidyr, stringr and more.
+- [Bioconductor course materials](https://bioconductor.org/help/course-materials/): packages, workflows and tutorials for genomics in R.

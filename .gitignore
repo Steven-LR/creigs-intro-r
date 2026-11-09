@@ -1,0 +1,15 @@
+# RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# Rendered output
+*.html
+*_files/
+
+# Created when the workbook runs
+data/restaurant_inspections.csv
+data/fig_*.csv
+data/*.rds
+figures/*.png
