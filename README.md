@@ -4,18 +4,24 @@ Workshop materials for CREiGS Intro to R, taught by Steven Lawrence, PhD, on Nov
 
 ## Get the materials
 
-You need R 4.6.1 and RStudio installed first. Then paste this into the RStudio console:
+You need R 4.6.1, RStudio, and the developer tools for your computer (Xcode Command Line Tools on a Mac, Rtools on Windows) installed first. Then paste this into the RStudio console:
 
 ```r
-install.packages("usethis")
+install.packages(c("usethis", "renv"))
 usethis::use_course("https://github.com/Steven-LR/creigs-intro-r/archive/refs/heads/main.zip")
 ```
 
 Answer **yes** to the prompts. RStudio opens the project in a new window, in a folder called `creigs-intro-r-main`. Always open the workshop from `creigs-intro-r.Rproj` so R can find the data.
 
-To give the folder your own name, choose **File › Close Project** in RStudio, rename the folder in Finder or File Explorer, then double-click `creigs-intro-r.Rproj` to reopen it. The workbook finds its files relative to the project folder, so everything keeps working.
+In the new project window, install every package at the version used for the workshop:
 
-If packages fail to install, run `renv::restore(library = .libPaths()[1])` inside the project to install the exact versions used for the workshop.
+```r
+renv::restore()
+```
+
+Type `y` when asked. This installs about 230 packages and takes 20 to 30 minutes.
+
+To give the folder your own name, choose **File › Close Project** in RStudio, rename the folder in Finder or File Explorer, then double-click `creigs-intro-r.Rproj` to reopen it. The workbook finds its files relative to the project folder, so everything keeps working.
 
 ## What's here
 
