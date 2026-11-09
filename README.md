@@ -4,7 +4,7 @@ Workshop materials for CREiGS Intro to R, taught by Steven Lawrence, PhD, on Nov
 
 ## Get the materials
 
-You need R 4.6.1, RStudio, and the developer tools for your computer (Xcode Command Line Tools on a Mac, Rtools on Windows) installed first. Then paste this into the RStudio console:
+You need R 4.6.1 and RStudio installed first. Then paste this into the RStudio console:
 
 ```r
 install.packages(c("usethis", "renv"))
