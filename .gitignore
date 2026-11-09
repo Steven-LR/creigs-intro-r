@@ -13,3 +13,7 @@ data/restaurant_inspections.csv
 data/fig_*.csv
 data/*.rds
 figures/*.png
+
+# macOS metadata (created on external drives)
+._*
+.DS_Store
