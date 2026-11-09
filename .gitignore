@@ -6,6 +6,7 @@
 
 # Rendered output
 *.html
+!_layouts/*.html
 *_files/
 
 # Created when the workbook runs

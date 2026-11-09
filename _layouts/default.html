@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="{{ site.lang | default: "en-US" }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% seo %}
+  <link rel="stylesheet" href="{{ "/assets/css/style.css?v=" | append: site.github.build_revision | relative_url }}">
+  <style>
+    .page { display: flex; gap: 48px; max-width: 1180px; margin: 0 auto; padding: 40px 24px; }
+    .toc { flex: 0 0 230px; position: sticky; top: 24px; align-self: flex-start;
+           max-height: calc(100vh - 48px); overflow-y: auto; font-size: 14px;
+           border-left: 2px solid #e1e4e8; padding-left: 14px; }
+    .toc strong { display: block; margin-bottom: 8px; color: #24292e; }
+    .toc a { display: block; padding: 4px 0; color: #586069; text-decoration: none; line-height: 1.35; }
+    .toc a:hover { color: #0366d6; }
+    .toc a.active { color: #0366d6; font-weight: 600; }
+    .content { flex: 1; min-width: 0; }
+    @media (max-width: 900px) {
+      .page { flex-direction: column; gap: 24px; padding: 24px 16px; }
+      .toc { position: static; max-height: none; flex: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <nav class="toc" id="toc" aria-label="On this page"><strong>On this page</strong></nav>
+    <main class="content markdown-body">
+      {{ content }}
+    </main>
+  </div>
+  <script>
+    (function () {
+      var toc = document.getElementById("toc");
+      var heads = Array.prototype.slice.call(document.querySelectorAll(".content h2[id]"));
+      var links = heads.map(function (h) {
+        var a = document.createElement("a");
+        a.href = "#" + h.id;
+        a.textContent = h.textContent;
+        toc.appendChild(a);
+        return a;
+      });
+      function update() {
+        var current = 0;
+        heads.forEach(function (h, i) { if (h.getBoundingClientRect().top < 120) current = i; });
+        links.forEach(function (a, i) { a.classList.toggle("active", i === current); });
+      }
+      window.addEventListener("scroll", update, { passive: true });
+      update();
+    })();
+  </script>
+</body>
+</html>
