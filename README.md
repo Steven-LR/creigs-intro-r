@@ -8,12 +8,14 @@ You need R 4.6.1 and RStudio installed first. Then paste this into the RStudio c
 
 ```r
 install.packages("usethis")
-usethis::use_course("steven-lr/creigs-intro-r")
+usethis::use_course("https://github.com/Steven-LR/creigs-intro-r/archive/refs/heads/main.zip")
 ```
 
-Answer **yes** to the prompts. RStudio opens the project in a new window. Always open the workshop from `creigs-intro-r.Rproj` so R can find the data.
+Answer **yes** to the prompts. RStudio opens the project in a new window, in a folder called `creigs-intro-r-main`. Always open the workshop from `creigs-intro-r.Rproj` so R can find the data.
 
-If packages fail to install, run `renv::restore()` inside the project to install the exact versions used for the workshop.
+To give the folder your own name, choose **File › Close Project** in RStudio, rename the folder in Finder or File Explorer, then double-click `creigs-intro-r.Rproj` to reopen it. The workbook finds its files relative to the project folder, so everything keeps working.
+
+If packages fail to install, run `renv::restore(library = .libPaths()[1])` inside the project to install the exact versions used for the workshop.
 
 ## What's here
 
