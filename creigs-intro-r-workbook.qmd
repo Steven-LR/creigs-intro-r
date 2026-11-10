@@ -464,7 +464,8 @@ These functions are not needed for the rest of the workbook. They solve problems
 
 ```{r fct-lump}
 inspections |>
-  mutate(cuisine = fct_lump_n(cuisine_description, n = 5)) |>
+  mutate(cuisine = fct_lump_n(cuisine_description,
+                             n = 5)) |>
   count(cuisine, sort = TRUE)
 ```
 
