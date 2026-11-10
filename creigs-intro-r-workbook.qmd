@@ -683,6 +683,64 @@ The setup chunk at the top of this workbook uses two ideas from Module 1:
 
 Defining these once at the top makes them available to every chunk below and keeps all figures consistent. Changing one value in the setup chunk changes every figure.
 
+## Writing functions and loops
+
+`theme_creigs()` in the setup chunk is a function written for this workbook. Writing your own is useful whenever you find yourself copying the same code with small changes.
+
+### Functions
+
+A function takes an input, runs the code between the braces, and returns the value of the last line. Module 4 calculated the share of A grades with `mean(grade == "A")`; this function wraps that calculation so it can be reused.
+
+```{r functions}
+a_share <- function(x) {
+  mean(x == "A", na.rm = TRUE)
+}
+
+a_share(c("A", "B", "A", "A"))     # 3 of 4 are A
+
+inspections |>
+  group_by(boro) |>
+  summarise(a_rate = ___(grade))
+```
+
+A function doesn't need a name if it's used only once. Here `function(x) { ... }` is written directly inside `across()` to turn each squirrel behavior into a percentage:
+
+```{r anonymous-function}
+squirrels |>
+  filter(!is.na(primary_fur_color)) |>
+  group_by(primary_fur_color) |>
+  summarise(across(c(kuks, quaas, tail_flags), function(x) {
+    round(100 * mean(x), 1)
+  }))
+```
+
+### For loops
+
+A `for` loop runs the same code once for each value in a vector. Inside the loop below, `b` takes each borough name in turn.
+
+```{r for-loop}
+for (b ___ sort(unique(inspections$boro))) {
+  rate <- a_share(inspections$grade[inspections$boro == b])
+  cat(b, ": ", round(100 * rate, 1), "% A\n", sep = "")
+}
+```
+
+Loops are often used to save one file per group. This loop maps the sightings for each fur color and saves each map with a file name built by `paste0()`:
+
+```{r for-loop-plots}
+for (fur in c("Gray", "Cinnamon", "Black")) {
+  p <- squirrels |>
+    filter(primary_fur_color == fur) |>
+    ggplot(aes(x, y)) +
+    geom_point(color = creigs[["royal"]], size = 1) +
+    labs(title = paste(fur, "squirrels"), x = "Longitude", y = "Latitude") +
+    theme_creigs()
+  ggsave(paste0("figures/squirrels_", fur, ".png"), p, width = 5, height = 5, bg = "white")
+}
+```
+
+The `figures` folder now holds three new PNG files.
+
 ## Recording package versions
 
 Packages are updated over time, and the same code can give different results with different versions. `sessionInfo()` prints the R version, the operating system and the version of every loaded package. Ending an analysis with it records what produced the results.
